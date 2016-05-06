@@ -21,7 +21,7 @@
 
 ## Install
 
-こちらの[リリースページ](https://github.com/yamamoto-febc/docker-machine-sakuracloud/releases/latest)から最新バージョンのバイナリをダウンロードして展開、実行権を付与してください。
+こちらの[リリースページ](https://github.com/yamamoto-febc/sacloud-upload-image/releases/latest)から最新バージョンのバイナリをダウンロードして展開、実行権を付与してください。
 
 以下のプラットフォーム用のバイナリを用意しています。
   * darwin(i386/amd64)
