@@ -97,7 +97,7 @@ $ export SAKURACLOUD_ACCESS_TOKEN_SECRET=[シークレット]
 
 # CentOS Atomic Host(http://www.projectatomic.io)の例
 $ curl -L http://cloud.centos.org/centos/7/atomic/images/CentOS-Atomic-Host-7-Installer.iso | \
-  sacloud-upload-image "CentOS Atomic Host"
+  ./sacloud-upload-image "CentOS Atomic Host"
 
 ```
 
