@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"github.com/webguerilla/ftps"
+	API "github.com/yamamoto-febc/libsacloud/api"
 	"io"
+	"io/ioutil"
+	"os"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -19,47 +24,163 @@ type CLI struct {
 	outStream, errStream io.Writer
 }
 
+type context struct {
+	token     string
+	secret    string
+	zone      string
+	inputFile *os.File
+	imageName string
+}
+
 // Run invokes the CLI with the given arguments.
 func (cli *CLI) Run(args []string) int {
 	var (
 		token  string
 		secret string
 		zone   string
-
-		version bool
+		file   string
 	)
 
 	// Define option flag parse
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
 	flags.SetOutput(cli.errStream)
 
-	flags.StringVar(&token, "token", "", "AccessToken")
-	flags.StringVar(&token, "t", "", "AccessToken(Short)")
+	flags.StringVar(&token, "token", "", "AccessToken / $SAKURACLOUD_ACCESS_TOKEN")
+	flags.StringVar(&token, "t", "", "AccessToken(Short) / $SAKURACLOUD_ACCESS_TOKEN")
 
-	flags.StringVar(&secret, "secret", "", "AccessTokenSecret")
-	flags.StringVar(&secret, "s", "", "AccessTokenSecret(Short)")
+	flags.StringVar(&secret, "secret", "", "AccessTokenSecret / $SAKURACLOUD_ACCESS_TOKEN_SECRET")
+	flags.StringVar(&secret, "s", "", "AccessTokenSecret(Short) / $SAKURACLOUD_ACCESS_TOKEN_SECRET")
 
-	flags.StringVar(&zone, "zone", "", "Target zone")
-	flags.StringVar(&zone, "z", "", "Target zone(Short)")
+	flags.StringVar(&zone, "zone", "is1a", "Target zone")
+	flags.StringVar(&zone, "z", "is1a", "Target zone(Short)")
 
-	flags.BoolVar(&version, "version", false, "Print version information and quit.")
+	flags.StringVar(&file, "file", "", "ISO image file")
+	flags.StringVar(&file, "f", "", "ISO image file(Short)")
+
+	token = os.Getenv("SAKURACLOUD_ACCESS_TOKEN")
+	secret = os.Getenv("SAKURACLOUD_ACCESS_TOKEN_SECRET")
 
 	// Parse commandline flag
 	if err := flags.Parse(args[1:]); err != nil {
 		return ExitCodeError
 	}
 
-	// Show version
-	if version {
-		fmt.Fprintf(cli.errStream, "%s version %s\n", Name, Version)
-		return ExitCodeOK
+	//validate options
+	if token == "" {
+		fmt.Fprintf(cli.errStream, "%s is required\n", "token")
+		return ExitCodeError
 	}
 
-	_ = token
+	if secret == "" {
+		fmt.Fprintf(cli.errStream, "%s is required\n", "secret")
+		return ExitCodeError
+	}
 
-	_ = secret
+	if zone == "" {
+		fmt.Fprintf(cli.errStream, "%s is required\n", "zone")
+		return ExitCodeError
+	}
 
-	_ = zone
+	//validate args
+	if flags.NArg() != 1 {
+		fmt.Fprintf(cli.errStream, "missing args.please set [ImageName]\n")
+		return ExitCodeError
+	}
+
+	imageName := flags.Arg(0)
+
+	// exists file or STDIN?
+	var inputFile *os.File
+	if file == "" {
+
+		fi, err := os.Stdin.Stat()
+		if err != nil {
+			panic(err)
+		}
+		if fi.Size() == 0 && fi.Mode()&os.ModeNamedPipe == 0 {
+			fmt.Fprintf(cli.errStream, "missing file. please use redirect or pipe or '-file' option\n")
+			return ExitCodeError
+		}
+
+		inputFile = os.Stdin
+
+	} else {
+		_, err := os.Stat(file)
+		if err != nil {
+			fmt.Fprintf(cli.errStream, "file[%s] is not found \n", file)
+			return ExitCodeError
+		}
+		inputFile, _ = os.Open(file)
+	}
+	defer inputFile.Close()
+
+	return cli.UploadImageToSakura(&context{
+		token:     token,
+		secret:    secret,
+		zone:      zone,
+		inputFile: inputFile,
+		imageName: imageName,
+	})
+}
+
+func (cli *CLI) UploadImageToSakura(params *context) int {
+
+	// APIクライアント作成
+	api := API.NewClient(params.token, params.secret, params.zone)
+
+	//ISO格納領域作成
+	newImage := api.CDROM.New()
+	newImage.Name = params.imageName
+	newImage.SizeMB = 5120
+	//Create and OpenFTP
+	image, ftp, err := api.CDROM.Create(newImage)
+
+	if err != nil {
+		fmt.Fprintf(cli.errStream, "Create ISOImage failed. %#v\n", err)
+		return ExitCodeError
+	}
+
+	//upload
+	ftpsClient := &ftps.FTPS{}
+	ftpsClient.TLSConfig.InsecureSkipVerify = true
+
+	err = ftpsClient.Connect(ftp.HostName, 21)
+	if err != nil {
+		fmt.Fprintf(cli.errStream, "Connect FTP failed. %#v\n", err)
+		return ExitCodeError
+	}
+
+	err = ftpsClient.Login(ftp.User, ftp.Password)
+	if err != nil {
+		fmt.Fprintf(cli.errStream, "Auth FTP failed. %#v\n", err)
+		return ExitCodeError
+	}
+
+	reader := bufio.NewReader(params.inputFile)
+	fileBytes, _ := ioutil.ReadAll(reader)
+
+	fmt.Fprintln(cli.outStream, "FTP information:")
+	fmt.Fprintln(cli.outStream, "  user: "+ftp.User)
+	fmt.Fprintln(cli.outStream, "  pass: "+ftp.Password)
+	fmt.Fprintln(cli.outStream, "  host: "+ftp.HostName)
+
+	fmt.Fprintln(cli.outStream, "uploading...")
+	err = ftpsClient.StoreFile("sacloud_upload_image.iso", fileBytes)
+	if err != nil {
+		fmt.Fprintf(cli.errStream, "Storefile FTP failed. %#v\n", err)
+		return ExitCodeError
+	}
+
+	fmt.Fprintln(cli.outStream, "done.")
+	ftpsClient.Quit()
+
+	// close image FTP after upload
+	_, err = api.CDROM.CloseFTP(image.ID)
+	if err != nil {
+		fmt.Fprintf(cli.errStream, "Close FTP failed. %#v\n", err)
+		return ExitCodeError
+	}
 
 	return ExitCodeOK
+
 }
