@@ -75,7 +75,10 @@ $ sacloud-upload-image [イメージ名]
 ISOファイルは`-file`オプション、またはパイプ/リダイレクトで指定します。
 `curl`などでISOファイルを取得、パイプで渡してさくらのクラウドへアップロードという使い方ができます。
 
-```パイプ/リダイレクトの例
+```ISOファイル指定方法の例
+
+# -fileオプションで指定(CoreOS.isoというファイルをアップロードする例)
+$ sacloud-upload-image [オプション] -file ./CoreOS.iso [イメージ名] 
 
 # curlからパイプで受け取る
 $ curl -L http://[ISOイメージのURL] | sacloud-upload-image [オプション] [イメージ名]
