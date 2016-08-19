@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 
 func TestRun_tokenFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
+	cli := &CLI{OutStream: outStream, ErrStream: errStream}
 	args := strings.Split("./sacloud-upload-image -token", " ")
 
 	status := cli.Run(args)
@@ -17,7 +17,7 @@ func TestRun_tokenFlag(t *testing.T) {
 
 func TestRun_secretFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
+	cli := &CLI{OutStream: outStream, ErrStream: errStream}
 	args := strings.Split("./sacloud-upload-image -secret", " ")
 
 	status := cli.Run(args)
@@ -26,7 +26,7 @@ func TestRun_secretFlag(t *testing.T) {
 
 func TestRun_zoneFlag(t *testing.T) {
 	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cli := &CLI{outStream: outStream, errStream: errStream}
+	cli := &CLI{OutStream: outStream, ErrStream: errStream}
 	args := strings.Split("./sacloud-upload-image -zone", " ")
 
 	status := cli.Run(args)

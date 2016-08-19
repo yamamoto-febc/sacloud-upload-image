@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bufio"
@@ -21,7 +21,7 @@ const (
 type CLI struct {
 	// outStream and errStream are the stdout and stderr
 	// to write message from the CLI.
-	outStream, errStream io.Writer
+	OutStream, ErrStream io.Writer
 }
 
 type context struct {
@@ -43,7 +43,7 @@ func (cli *CLI) Run(args []string) int {
 
 	// Define option flag parse
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
-	flags.SetOutput(cli.errStream)
+	flags.SetOutput(cli.ErrStream)
 
 	flags.StringVar(&token, "token", "", "AccessToken / $SAKURACLOUD_ACCESS_TOKEN")
 	flags.StringVar(&token, "t", "", "AccessToken(Short) / $SAKURACLOUD_ACCESS_TOKEN")
@@ -67,23 +67,23 @@ func (cli *CLI) Run(args []string) int {
 
 	//validate options
 	if token == "" {
-		fmt.Fprintf(cli.errStream, "%s is required\n", "token")
+		fmt.Fprintf(cli.ErrStream, "%s is required\n", "token")
 		return ExitCodeError
 	}
 
 	if secret == "" {
-		fmt.Fprintf(cli.errStream, "%s is required\n", "secret")
+		fmt.Fprintf(cli.ErrStream, "%s is required\n", "secret")
 		return ExitCodeError
 	}
 
 	if zone == "" {
-		fmt.Fprintf(cli.errStream, "%s is required\n", "zone")
+		fmt.Fprintf(cli.ErrStream, "%s is required\n", "zone")
 		return ExitCodeError
 	}
 
 	//validate args
 	if flags.NArg() != 1 {
-		fmt.Fprintf(cli.errStream, "missing args.please set [ImageName]\n")
+		fmt.Fprintf(cli.ErrStream, "missing args.please set [ImageName]\n")
 		return ExitCodeError
 	}
 
@@ -98,7 +98,7 @@ func (cli *CLI) Run(args []string) int {
 			panic(err)
 		}
 		if fi.Size() == 0 && fi.Mode()&os.ModeNamedPipe == 0 {
-			fmt.Fprintf(cli.errStream, "missing file. please use redirect or pipe or '-file' option\n")
+			fmt.Fprintf(cli.ErrStream, "missing file. please use redirect or pipe or '-file' option\n")
 			return ExitCodeError
 		}
 
@@ -107,7 +107,7 @@ func (cli *CLI) Run(args []string) int {
 	} else {
 		_, err := os.Stat(file)
 		if err != nil {
-			fmt.Fprintf(cli.errStream, "file[%s] is not found \n", file)
+			fmt.Fprintf(cli.ErrStream, "file[%s] is not found \n", file)
 			return ExitCodeError
 		}
 		inputFile, _ = os.Open(file)
@@ -136,7 +136,7 @@ func (cli *CLI) UploadImageToSakura(params *context) int {
 	image, ftp, err := api.CDROM.Create(newImage)
 
 	if err != nil {
-		fmt.Fprintf(cli.errStream, "Create ISOImage failed. %#v\n", err)
+		fmt.Fprintf(cli.ErrStream, "Create ISOImage failed. %#v\n", err)
 		return ExitCodeError
 	}
 
@@ -146,38 +146,38 @@ func (cli *CLI) UploadImageToSakura(params *context) int {
 
 	err = ftpsClient.Connect(ftp.HostName, 21)
 	if err != nil {
-		fmt.Fprintf(cli.errStream, "Connect FTP failed. %#v\n", err)
+		fmt.Fprintf(cli.ErrStream, "Connect FTP failed. %#v\n", err)
 		return ExitCodeError
 	}
 
 	err = ftpsClient.Login(ftp.User, ftp.Password)
 	if err != nil {
-		fmt.Fprintf(cli.errStream, "Auth FTP failed. %#v\n", err)
+		fmt.Fprintf(cli.ErrStream, "Auth FTP failed. %#v\n", err)
 		return ExitCodeError
 	}
 
 	reader := bufio.NewReader(params.inputFile)
 	fileBytes, _ := ioutil.ReadAll(reader)
 
-	fmt.Fprintln(cli.outStream, "FTP information:")
-	fmt.Fprintln(cli.outStream, "  user: "+ftp.User)
-	fmt.Fprintln(cli.outStream, "  pass: "+ftp.Password)
-	fmt.Fprintln(cli.outStream, "  host: "+ftp.HostName)
+	fmt.Fprintln(cli.OutStream, "FTP information:")
+	fmt.Fprintln(cli.OutStream, "  user: "+ftp.User)
+	fmt.Fprintln(cli.OutStream, "  pass: "+ftp.Password)
+	fmt.Fprintln(cli.OutStream, "  host: "+ftp.HostName)
 
-	fmt.Fprintln(cli.outStream, "uploading...")
+	fmt.Fprintln(cli.OutStream, "uploading...")
 	err = ftpsClient.StoreFile("sacloud_upload_image.iso", fileBytes)
 	if err != nil {
-		fmt.Fprintf(cli.errStream, "Storefile FTP failed. %#v\n", err)
+		fmt.Fprintf(cli.ErrStream, "Storefile FTP failed. %#v\n", err)
 		return ExitCodeError
 	}
 
-	fmt.Fprintln(cli.outStream, "done.")
+	fmt.Fprintln(cli.OutStream, "done.")
 	ftpsClient.Quit()
 
 	// close image FTP after upload
 	_, err = api.CDROM.CloseFTP(image.ID)
 	if err != nil {
-		fmt.Fprintf(cli.errStream, "Close FTP failed. %#v\n", err)
+		fmt.Fprintf(cli.ErrStream, "Close FTP failed. %#v\n", err)
 		return ExitCodeError
 	}
 
