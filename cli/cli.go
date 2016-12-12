@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/webguerilla/ftps"
-	API "github.com/yamamoto-febc/libsacloud/api"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/webguerilla/ftps"
+	API "github.com/yamamoto-febc/libsacloud/api"
 )
 
 // Exit codes are int values that represent an exit code for a particular error.
@@ -59,6 +60,7 @@ func (cli *CLI) Run(args []string) int {
 
 	token = os.Getenv("SAKURACLOUD_ACCESS_TOKEN")
 	secret = os.Getenv("SAKURACLOUD_ACCESS_TOKEN_SECRET")
+	zone = os.Getenv("SAKURACLOUD_ZONE")
 
 	// Parse commandline flag
 	if err := flags.Parse(args[1:]); err != nil {
